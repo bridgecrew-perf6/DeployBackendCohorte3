@@ -1,5 +1,8 @@
 import { baseDeDatos} from "./database"
 import { json } from "body-parser"
+import {app as firebaseapp, analytics} from "./firebase"
+import {getAuth} from "firebase-admin/auth";
+import { send } from "process";
 
 const cors = require('cors')
 const express = require('express')
@@ -15,27 +18,23 @@ const productCollection = baseDeDatos.collection("producto")
 /* rutas con GET */
 app.get('/users', (req, res) => {
     /* Devuelve todos los usuarios  Limite:20 */
-    usersCollection.limit(20).get().then(snap=>{
-      const docs = snap.docs
-      const resp = []
-      for (const doc of docs) {
-        resp.push(doc.data())
-      }
-      res.json(resp)
-      })
+    getAuth().listUsers(20)
+    .then((listUsersResult) => {
+      
+        res.send(listUsersResult.users);
+
+    })
     })
 app.get('/users/:userid', (req, res) => {
   /* Devuelve un usuario en particular */
     const userid = req.params.userid
-    usersCollection.doc(userid).get().then((snap)=>{
-      if(snap.exists){
-        res.send(snap.data())
-      }else{
-        res.send("User Not Found")
-      }
-    })
+    getAuth()
+  .getUser(userid)
+  .then((userRecord) => {
+    // See the UserRecord reference doc for the contents of userRecord.
+    res.send(userRecord.toJSON());
   })
-
+})
 app.get('/product', (req, res) => {
     /* Devuelve todos los productos   Limite:20 */
     productCollection.limit(20).get().then(snap=>{
@@ -109,10 +108,11 @@ app.get('/product/:filter/:operacion/:precio', (req, res) => {
 
 app.post('/users', function (req, res) {
   /* Crea un usuario */
-    const newUserDoc = usersCollection.doc()
-    newUserDoc.create(req.body).then(()=>{
-      res.send(newUserDoc.id)
-        })
+  const body = req.body
+  getAuth().createUser(body)
+  .then((userRecord) => {
+    res.status(200).send(userRecord.uid);
+  })
     });
 app.post('/product', function (req, res) {
   /* Crea un Producto */
